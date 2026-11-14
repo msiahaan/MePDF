@@ -15,8 +15,12 @@ if (Test-Path $VenvPython) {
 Write-Host "==> Using Python: $PythonExe" -ForegroundColor Cyan
 
 # Ensure PyInstaller is installed
-& $PythonExe -c "import PyInstaller" 2>$null
-if ($LASTEXITCODE -ne 0) {
+$ErrorActionPreference = "Continue"
+& $PythonExe -m pip show pyinstaller >$null 2>&1
+$HasPyInstaller = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = "Stop"
+
+if (-not $HasPyInstaller) {
     Write-Host "==> Installing PyInstaller..." -ForegroundColor Yellow
     & $PythonExe -m pip install pyinstaller
 }
