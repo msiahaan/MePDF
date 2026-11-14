@@ -1,0 +1,115 @@
+name: Build & Release Installers (Windows & macOS)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows Installer (x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install PySide6 PyMuPDF pikepdf Pillow pytest pytest-qt pyinstaller
+
+      - name: Run automated test suite
+        run: pytest -v
+
+      - name: Build Windows Setup Wizard (.exe) & Portable (.zip)
+        shell: pwsh
+        run: ./packaging/build_windows.ps1
+
+      - name: Upload Windows Installer Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MePDF-Windows-x64-Installers
+          path: |
+            dist/installers/MePDF-Setup-*-win64.exe
+            dist/installers/MePDF-Portable-*-win64.zip
+
+  build-macos:
+    name: Build macOS DMG (${{ matrix.arch }})
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            py_arch: arm64
+          - arch: x86_64
+            py_arch: x64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python (${{ matrix.arch }})
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.py_arch }}
+
+      - name: Install dependencies (${{ matrix.arch }})
+        run: |
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            arch -x86_64 python3 -m pip install --upgrade pip
+            arch -x86_64 python3 -m pip install PySide6 PyMuPDF pikepdf Pillow pytest pytest-qt pyinstaller
+          else
+            python3 -m pip install --upgrade pip
+            python3 -m pip install PySide6 PyMuPDF pikepdf Pillow pytest pytest-qt pyinstaller
+          fi
+
+      - name: Run automated test suite (${{ matrix.arch }})
+        run: |
+          if [ "${{ matrix.arch }}" = "x86_64" ]; then
+            QT_QPA_PLATFORM=offscreen arch -x86_64 python3 -m pytest -v
+          else
+            QT_QPA_PLATFORM=offscreen python3 -m pytest -v
+          fi
+
+      - name: Build macOS .app and .dmg Installer (${{ matrix.arch }})
+        run: |
+          chmod +x packaging/build_macos.sh
+          ./packaging/build_macos.sh ${{ matrix.arch }}
+
+      - name: Upload macOS DMG Artifact (${{ matrix.arch }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: MePDF-macOS-${{ matrix.arch }}-Installer
+          path: dist/installers/MePDF-*-macOS-${{ matrix.arch }}.dmg
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all built installer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Create GitHub Release & Upload Installers
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release_assets/MePDF-Setup-*-win64.exe
+            release_assets/MePDF-Portable-*-win64.zip
+            release_assets/MePDF-*-macOS-arm64.dmg
+            release_assets/MePDF-*-macOS-x86_64.dmg

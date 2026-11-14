@@ -36,3 +36,29 @@ python -m venv .venv
 ```powershell
 .\.venv\Scripts\pytest -v
 ```
+
+## Building Installers (Windows & macOS)
+
+### Pre-Built Release Installers (GitHub Actions)
+Pushing a version tag (e.g. `v1.0.0`) or running the **Build & Release Installers** workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml) automatically builds and publishes:
+- **Windows (x64)**:
+  - `MePDF-Setup-1.0.0-win64.exe` (Inno Setup Wizard with license screen, shortcuts, optional `.pdf` file association, and uninstaller)
+  - `MePDF-Portable-1.0.0-win64.zip` (Standalone portable folder)
+- **macOS (Apple Silicon & Intel)**:
+  - `MePDF-1.0.0-macOS-arm64.dmg` (`MePDF.app` + `Applications` drag-and-drop shortcut)
+  - `MePDF-1.0.0-macOS-x86_64.dmg` (`MePDF.app` + `Applications` drag-and-drop shortcut)
+
+### Local Build Commands
+- **Windows (PowerShell)**:
+  ```powershell
+  .\packaging\build_windows.ps1
+  ```
+- **macOS (Bash/Zsh)**:
+  ```bash
+  chmod +x packaging/build_macos.sh
+  ./packaging/build_macos.sh
+  ```
+
+## License
+
+Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see [LICENSE](LICENSE) for full details.
